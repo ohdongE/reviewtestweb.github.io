@@ -43,8 +43,8 @@
 <main id="app">
   <div class="notice" role="note">
     <b>WebGuideBot 심사용 시험 페이지 (Test page for WebGuideBot review)</b>
-    실제 기관·기업의 서비스가 아닙니다. 입력한 값은 이 페이지 밖으로 전송되거나 저장되지 않습니다. 가상의 값만 입력해 주세요.
-    <br>This is NOT an official service. Nothing you type is sent or stored anywhere. Please use fictional values only.
+    실제 기관·기업의 서비스가 아닙니다. 입력한 값은 보내지 않고 저장하지도 않습니다. [제출하기]를 누르면 "제출됨" 신호만 운영자에게 갑니다(입력한 값은 들어가지 않습니다). 가상의 값만 입력해 주세요.
+    <br>This is NOT an official service. What you type is never sent or stored. Pressing Submit only notifies the operator that the form was submitted (no values are included). Please use fictional values only.
   </div>
 
   <h1 id="title">시험용 신청서</h1>
@@ -85,7 +85,7 @@
 
   <!-- 3단계: 완료 -->
   <section id="step3" hidden>
-    <div id="result" role="status">시험 접수가 끝났어요. 서버로 아무것도 보내지 않았어요. (Done. Nothing was sent.)</div>
+    <div id="result" role="status">시험 접수가 끝났어요. 입력한 값은 보내지 않았어요. (Done. Your values were not sent.)</div>
     <div class="row"><button id="again" type="button">처음으로</button></div>
   </section>
 </main>
@@ -128,8 +128,17 @@
   });
   $('next').addEventListener('click', function () { show(2, true); });
   $('prev').addEventListener('click', function () { show(1, true); });
-  // 이 단추도 아무 데도 보내지 않아요 (서버 요청 없음)
-  $('submit').addEventListener('click', function () { show(3, true); });
+  // [제출하기] 신호 (2026-11-25): 입력한 값은 보내지 않고 "제출됨" 신호 하나만 웹가이드봇 서버로 보내요(운영 채널 알림. 서버: web/src/lib/server/reviewping.ts).
+  //   응답은 기다리지 않아요(실패해도 화면은 그대로 완료로 넘어가요). 자동 실행 브라우저(시험 도구: navigator.webdriver)에서는 보내지 않아요: 시험을 돌릴 때마다 알림이 가지 않게.
+  //   ?ping=local 로 열면 로컬 개발 서버(localhost:5180)로 보내요(시험용).
+  var PING = new URLSearchParams(location.search).get('ping') === 'local' ? 'http://localhost:5180/api/review-ping' : 'https://webguidebot.com/api/review-ping';
+  function ping() {
+    if (navigator.webdriver || !window.fetch) return;
+    try {
+      fetch(PING, { method: 'POST', mode: 'cors', credentials: 'omit', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'submit' }) }).catch(function () {});
+    } catch (e) { /* 알림이 안 가도 시험에는 영향이 없어요 */ }
+  }
+  $('submit').addEventListener('click', function () { ping(); show(3, true); });
   $('again').addEventListener('click', function () { show(1, true); });
   window.addEventListener('popstate', function () { show(stepOf(), false); });
   show(stepOf(), false);
